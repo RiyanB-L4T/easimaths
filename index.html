@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>EasiMaths: Guaranteed Audio</title>
+    <style>
+        :root { --neon-green: #39ff14; --space-blue: #0a0b1e; --star-gold: #ffd700; }
+        body { margin: 0; background: var(--space-blue); color: white; font-family: 'Arial', sans-serif; overflow: hidden; }
+        .screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .active { display: flex; }
+        
+        #start-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--space-blue); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .start-btn { padding: 25px 60px; font-size: 35px; background: var(--neon-green); color: black; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; box-shadow: 0 0 20px var(--neon-green); }
+
+        .map-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 900px; margin-top: 20px; }
+        .planet { width: 90px; height: 90px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 22px; border: 3px solid rgba(255,255,255,0.2); transition: 0.3s; }
+        
+        #game-box { width: 95%; max-width: 500px; padding: 40px; border: 2px solid var(--neon-green); border-radius: 30px; background: rgba(0,0,0,0.9); text-align: center; }
+        input[type="number"] { background: transparent; border: none; border-bottom: 4px solid var(--star-gold); color: var(--star-gold); font-size: 80px; text-align: center; width: 180px; outline: none; }
+        .progress-container { width: 100%; background: #222; height: 12px; border-radius: 10px; margin-bottom: 20px; }
+        #progress-bar { width: 0%; height: 100%; background: var(--neon-green); transition: 0.2s; }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay">
+        <h1 style="font-size: 60px; color: var(--star-gold); margin-bottom: 10px;">EasiMaths</h1>
+        <p style="margin-bottom: 30px; font-size: 20px;">Ready to clear the galaxy?</p>
+        <button class="start-btn" onclick="bootSystem()">ACTIVATE SYSTEM</button>
+    </div>
+
+    <div id="map-screen" class="screen">
+        <h1 style="color: var(--star-gold);">EasiMaths Galaxy</h1>
+        <div class="map-container" id="planet-list"></div>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div id="game-box">
+            <div onclick="showMap()" style="cursor:pointer; color:var(--neon-green); text-align: left; margin-bottom: 10px; font-weight: bold;">⬅ MAP</div>
+            <div class="progress-container"><div id="progress-bar"></div></div>
+            <div id="question" style="font-size: 80px; font-weight: bold; margin-bottom: 5px;">-- × --</div>
+            <input type="number" id="answer-input" pattern="\d*" inputmode="numeric" autocomplete="off">
+            <p id="feedback" style="height: 30px; font-weight: bold; margin-top: 20px; font-size: 24px;"></p>
+        </div>
+    </div>
+
+    <script>
+        let currentTable, currentAnswer, solvedCount = 0, missionQueue = [];
+        let audioCtx;
+        const inputField = document.getElementById('answer-input');
+
+        function bootSystem() {
+            // Create Audio Context on click
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            document.getElementById('start-overlay').style.display = 'none';
+            document.getElementById('map-screen').classList.add('active');
+            renderPlanets();
+        }
+
+        function playDing() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High A note
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function playCrash() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function renderPlanets() {
+            const colors = ['#ff5f6d', '#ffc371', '#ee9ca7', '#4facfe', '#00f2fe', '#a18cd1', '#fbc2eb', '#84fab0', '#5ee7df', '#fccb90', '#d299c2'];
+            const list = document.getElementById('planet-list');
+            list.innerHTML = "";
+            for(let i=2; i<=12; i++) {
+                let p = document.createElement('div');
+                p.className = 'planet';
+                p.style.background = `radial-gradient(circle at 30% 30%, ${colors[i-2]}, #000)`;
+                p.innerText = i + 'x';
+                p.onclick = () => startLevel(i);
+                list.appendChild(p);
+            }
+        }
+
+        function startLevel(table) {
+            currentTable = table;
+            solvedCount = 0;
+            missionQueue = Array.from({length: 12}, (_, i) => i + 1).sort(() => Math.random() - 0.5);
+            document.getElementById('map-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            inputField.value = "";
+            currentAnswer = currentTable * missionQueue[solvedCount];
+            document.getElementById('question').innerText = `${currentTable} × ${missionQueue[solvedCount]}`;
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('progress-bar').style.width = (solvedCount / 12 * 100) + "%";
+            setTimeout(() => inputField.focus(), 50);
+        }
+
+        inputField.addEventListener("input", function() {
+            if (inputField.value.length >= currentAnswer.toString().length) {
+                if (parseInt(inputField.value) === currentAnswer) {
+                    playDing();
+                    document.getElementById('feedback').innerText = "⭐ PERFECT!";
+                    document.getElementById('feedback').style.color = "var(--neon-green)";
+                    solvedCount++;
+                    if(solvedCount >= 12) {
+                        setTimeout(() => { alert("PLANET MASTERED!"); showMap(); }, 400);
+                    } else {
+                        setTimeout(nextQuestion, 400);
+                    }
+                } else {
+                    playCrash();
+                    document.getElementById('feedback').innerText = "❌ TRY AGAIN";
+                    document.getElementById('feedback').style.color = "#ff073a";
+                    inputField.value = "";
+                }
+            }
+        });
+
+        function showMap() {
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('map-screen').classList.add('active');
+        }
+    </script>
+</body>
+</html>
