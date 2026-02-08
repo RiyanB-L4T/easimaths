@@ -3,7 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>EasiMaths: Guaranteed Audio</title>
+    <title>EasiMaths</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EasiMaths">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0a0b1e">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192/39ff14/000000?text=E">
+
     <style>
         :root { --neon-green: #39ff14; --space-blue: #0a0b1e; --star-gold: #ffd700; }
         body { margin: 0; background: var(--space-blue); color: white; font-family: 'Arial', sans-serif; overflow: hidden; }
@@ -26,7 +34,6 @@
 
     <div id="start-overlay">
         <h1 style="font-size: 60px; color: var(--star-gold); margin-bottom: 10px;">EasiMaths</h1>
-        <p style="margin-bottom: 30px; font-size: 20px;">Ready to clear the galaxy?</p>
         <button class="start-btn" onclick="bootSystem()">ACTIVATE SYSTEM</button>
     </div>
 
@@ -51,7 +58,6 @@
         const inputField = document.getElementById('answer-input');
 
         function bootSystem() {
-            // Create Audio Context on click
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             document.getElementById('start-overlay').style.display = 'none';
             document.getElementById('map-screen').classList.add('active');
@@ -63,26 +69,26 @@
             const gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High A note
-            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
+            osc.stop(audioCtx.currentTime + 0.3);
         }
 
+        // IMPROVED ERROR SOUND (Louder/Harsh)
         function playCrash() {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime + 0.4);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.type = 'square'; // Harsh wave type
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.4);
+            osc.stop(audioCtx.currentTime + 0.3);
         }
 
         function renderPlanets() {
@@ -121,7 +127,7 @@
             if (inputField.value.length >= currentAnswer.toString().length) {
                 if (parseInt(inputField.value) === currentAnswer) {
                     playDing();
-                    document.getElementById('feedback').innerText = "⭐ PERFECT!";
+                    document.getElementById('feedback').innerText = "⭐ CORRECT!";
                     document.getElementById('feedback').style.color = "var(--neon-green)";
                     solvedCount++;
                     if(solvedCount >= 12) {
