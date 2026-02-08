@@ -14,31 +14,51 @@
 
     <style>
         :root { --neon-green: #39ff14; --space-blue: #0a0b1e; --star-gold: #ffd700; }
-        body { margin: 0; background: var(--space-blue); color: white; font-family: 'Arial', sans-serif; overflow: hidden; }
-        .screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        body { margin: 0; background: var(--space-blue); color: white; font-family: 'Arial', sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+        
+        .screen { display: none; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; padding: 20px; box-sizing: border-box; }
         .active { display: flex; }
         
         #start-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--space-blue); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-        .start-btn { padding: 25px 60px; font-size: 35px; background: var(--neon-green); color: black; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; box-shadow: 0 0 20px var(--neon-green); }
+        .start-btn { padding: 25px 60px; font-size: 30px; background: var(--neon-green); color: black; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
 
-        .map-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 900px; margin-top: 20px; }
-        .planet { width: 90px; height: 90px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 22px; border: 3px solid rgba(255,255,255,0.2); transition: 0.3s; }
+        /* FIXED PLANET GRID FOR PHONES */
+        .map-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 15px; 
+            width: 100%; 
+            max-width: 600px; 
+            margin-top: 10px;
+            padding-bottom: 40px;
+        }
         
-        #game-box { width: 95%; max-width: 500px; padding: 40px; border: 2px solid var(--neon-green); border-radius: 30px; background: rgba(0,0,0,0.9); text-align: center; }
-        input[type="number"] { background: transparent; border: none; border-bottom: 4px solid var(--star-gold); color: var(--star-gold); font-size: 80px; text-align: center; width: 180px; outline: none; }
-        .progress-container { width: 100%; background: #222; height: 12px; border-radius: 10px; margin-bottom: 20px; }
+        .planet { 
+            width: 80px; height: 80px; border-radius: 50%; 
+            cursor: pointer; display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; font-size: 18px; border: 2px solid rgba(255,255,255,0.2); 
+            transition: 0.2s; flex-shrink: 0;
+        }
+        
+        .planet.random { background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff) !important; width: 100px; height: 100px; border: 3px solid white; font-size: 14px; text-align: center; line-height: 1.1; }
+
+        #game-box { width: 100%; max-width: 450px; padding: 30px; border: 2px solid var(--neon-green); border-radius: 30px; background: rgba(0,0,0,0.9); text-align: center; box-sizing: border-box; }
+        input[type="number"] { background: transparent; border: none; border-bottom: 4px solid var(--star-gold); color: var(--star-gold); font-size: 70px; text-align: center; width: 160px; outline: none; }
+        .progress-container { width: 100%; background: #222; height: 10px; border-radius: 10px; margin-bottom: 15px; }
         #progress-bar { width: 0%; height: 100%; background: var(--neon-green); transition: 0.2s; }
     </style>
 </head>
 <body>
 
     <div id="start-overlay">
-        <h1 style="font-size: 60px; color: var(--star-gold); margin-bottom: 10px;">EasiMaths</h1>
-        <button class="start-btn" onclick="bootSystem()">ACTIVATE SYSTEM</button>
+        <h1 style="color: var(--star-gold);">EasiMaths</h1>
+        <button class="start-btn" onclick="bootSystem()">START</button>
     </div>
 
     <div id="map-screen" class="screen">
-        <h1 style="color: var(--star-gold);">EasiMaths Galaxy</h1>
+        <h2 style="color: var(--star-gold); margin-bottom: 5px;">EasiMaths Galaxy</h2>
+        <p style="font-size: 14px; margin-bottom: 15px;">Pick a table or the Randomizer!</p>
         <div class="map-container" id="planet-list"></div>
     </div>
 
@@ -46,14 +66,15 @@
         <div id="game-box">
             <div onclick="showMap()" style="cursor:pointer; color:var(--neon-green); text-align: left; margin-bottom: 10px; font-weight: bold;">⬅ MAP</div>
             <div class="progress-container"><div id="progress-bar"></div></div>
-            <div id="question" style="font-size: 80px; font-weight: bold; margin-bottom: 5px;">-- × --</div>
+            <div id="question" style="font-size: 65px; font-weight: bold; margin-bottom: 5px;">-- × --</div>
             <input type="number" id="answer-input" pattern="\d*" inputmode="numeric" autocomplete="off">
-            <p id="feedback" style="height: 30px; font-weight: bold; margin-top: 20px; font-size: 24px;"></p>
+            <p id="feedback" style="height: 30px; font-weight: bold; margin-top: 20px; font-size: 22px;"></p>
         </div>
     </div>
 
     <script>
         let currentTable, currentAnswer, solvedCount = 0, missionQueue = [];
+        let isRandomMode = false;
         let audioCtx;
         const inputField = document.getElementById('answer-input');
 
@@ -67,28 +88,23 @@
         function playDing() {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
+            osc.connect(gain); gain.connect(audioCtx.destination);
             osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.3);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
         }
 
-        // IMPROVED ERROR SOUND (Louder/Harsh)
         function playCrash() {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.type = 'square'; // Harsh wave type
-            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
             gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.3);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
         }
 
         function renderPlanets() {
@@ -103,9 +119,16 @@
                 p.onclick = () => startLevel(i);
                 list.appendChild(p);
             }
+            // Add THE RANDOMIZER Planet
+            let r = document.createElement('div');
+            r.className = 'planet random';
+            r.innerHTML = "THE<br>RANDOMIZER";
+            r.onclick = () => startRandomLevel();
+            list.appendChild(r);
         }
 
         function startLevel(table) {
+            isRandomMode = false;
             currentTable = table;
             solvedCount = 0;
             missionQueue = Array.from({length: 12}, (_, i) => i + 1).sort(() => Math.random() - 0.5);
@@ -114,12 +137,38 @@
             nextQuestion();
         }
 
+        function startRandomLevel() {
+            isRandomMode = true;
+            solvedCount = 0;
+            missionQueue = [];
+            // Create 15 random questions from any table 2-12
+            for(let i=0; i<15; i++) {
+                missionQueue.push({
+                    t: Math.floor(Math.random() * 11) + 2,
+                    m: Math.floor(Math.random() * 12) + 1
+                });
+            }
+            document.getElementById('map-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+            nextQuestion();
+        }
+
         function nextQuestion() {
             inputField.value = "";
-            currentAnswer = currentTable * missionQueue[solvedCount];
-            document.getElementById('question').innerText = `${currentTable} × ${missionQueue[solvedCount]}`;
+            let q;
+            if(isRandomMode) {
+                q = missionQueue[solvedCount];
+                currentTable = q.t;
+                currentAnswer = q.t * q.m;
+                document.getElementById('question').innerText = `${q.t} × ${q.m}`;
+            } else {
+                let mult = missionQueue[solvedCount];
+                currentAnswer = currentTable * mult;
+                document.getElementById('question').innerText = `${currentTable} × ${mult}`;
+            }
             document.getElementById('feedback').innerText = "";
-            document.getElementById('progress-bar').style.width = (solvedCount / 12 * 100) + "%";
+            const total = isRandomMode ? 15 : 12;
+            document.getElementById('progress-bar').style.width = (solvedCount / total * 100) + "%";
             setTimeout(() => inputField.focus(), 50);
         }
 
@@ -130,14 +179,15 @@
                     document.getElementById('feedback').innerText = "⭐ CORRECT!";
                     document.getElementById('feedback').style.color = "var(--neon-green)";
                     solvedCount++;
-                    if(solvedCount >= 12) {
-                        setTimeout(() => { alert("PLANET MASTERED!"); showMap(); }, 400);
+                    const total = isRandomMode ? 15 : 12;
+                    if(solvedCount >= total) {
+                        setTimeout(() => { alert("MISSION MASTERED!"); showMap(); }, 400);
                     } else {
                         setTimeout(nextQuestion, 400);
                     }
                 } else {
                     playCrash();
-                    document.getElementById('feedback').innerText = "❌ TRY AGAIN";
+                    document.getElementById('feedback').innerText = "❌ ERROR";
                     document.getElementById('feedback').style.color = "#ff073a";
                     inputField.value = "";
                 }
