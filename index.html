@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>EasiMaths</title>
+    <title>EasiMaths: Multi & Div</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,6 +21,11 @@
         
         #start-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--space-blue); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         .start-btn { padding: 25px 60px; font-size: 30px; background: var(--neon-green); color: black; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
+
+        /* MODE TOGGLE */
+        .mode-toggle { display: flex; background: #222; border-radius: 30px; padding: 5px; margin-bottom: 20px; border: 1px solid #444; }
+        .toggle-btn { padding: 10px 20px; border-radius: 25px; cursor: pointer; transition: 0.3s; font-weight: bold; font-size: 14px; }
+        .toggle-btn.active { background: var(--neon-green); color: black; }
 
         .map-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; width: 100%; max-width: 600px; margin-top: 10px; padding-bottom: 40px; }
         .planet { width: 80px; height: 80px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; border: 2px solid rgba(255,255,255,0.2); transition: 0.2s; flex-shrink: 0; position: relative;}
@@ -43,8 +48,14 @@
     </div>
 
     <div id="map-screen" class="screen">
-        <h2 style="color: var(--star-gold); margin-bottom: 5px;">EasiMaths Galaxy</h2>
-        <p style="font-size: 14px; margin-bottom: 15px;">Target: Complete all tables 2x1 to 12x12!</p>
+        <h2 style="color: var(--star-gold); margin-bottom: 5px;">Galaxy Hub</h2>
+        
+        <div class="mode-toggle">
+            <div id="btn-mult" class="toggle-btn active" onclick="setMode('mult')">MULTIPLICATION</div>
+            <div id="btn-div" class="toggle-btn" onclick="setMode('div')">DIVISION</div>
+        </div>
+
+        <p id="mode-desc" style="font-size: 14px; margin-bottom: 15px;">Target: Master the Times Tables!</p>
         <div class="map-container" id="planet-list"></div>
     </div>
 
@@ -52,7 +63,7 @@
         <div id="game-box">
             <div onclick="showMap()" style="cursor:pointer; color:var(--neon-green); text-align: left; margin-bottom: 10px; font-weight: bold;">⬅ MAP</div>
             <div class="progress-container"><div id="progress-bar"></div></div>
-            <div id="counter">Question 1 of 132</div>
+            <div id="counter">Question 1 of 12</div>
             <div id="question" style="font-size: 65px; font-weight: bold; margin: 10px 0;">-- × --</div>
             <input type="number" id="answer-input" pattern="\d*" inputmode="numeric" autocomplete="off">
             <p id="feedback" style="height: 30px; font-weight: bold; margin-top: 20px; font-size: 22px;"></p>
@@ -61,6 +72,7 @@
 
     <script>
         let currentTable, currentAnswer, solvedCount = 0, missionQueue = [];
+        let gameMode = 'mult'; // 'mult' or 'div'
         let isRandomMode = false;
         let audioCtx;
         const inputField = document.getElementById('answer-input');
@@ -69,6 +81,14 @@
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             document.getElementById('start-overlay').style.display = 'none';
             document.getElementById('map-screen').classList.add('active');
+            renderPlanets();
+        }
+
+        function setMode(mode) {
+            gameMode = mode;
+            document.getElementById('btn-mult').classList.toggle('active', mode === 'mult');
+            document.getElementById('btn-div').classList.toggle('active', mode === 'div');
+            document.getElementById('mode-desc').innerText = mode === 'mult' ? "Target: Master the Times Tables!" : "Target: Master Division Facts!";
             renderPlanets();
         }
 
@@ -98,15 +118,16 @@
             const colors = ['#ff5f6d', '#ffc371', '#ee9ca7', '#4facfe', '#00f2fe', '#a18cd1', '#fbc2eb', '#84fab0', '#5ee7df', '#fccb90', '#d299c2'];
             const list = document.getElementById('planet-list');
             list.innerHTML = "";
+            const symbol = gameMode === 'mult' ? 'x' : '÷';
+            
             for(let i=2; i<=12; i++) {
                 let p = document.createElement('div');
                 p.className = 'planet';
                 p.style.background = `radial-gradient(circle at 30% 30%, ${colors[i-2]}, #000)`;
-                p.innerHTML = `${i}x<span>Planet ${i}</span>`;
+                p.innerHTML = `${i}${symbol}<span>Planet ${i}</span>`;
                 p.onclick = () => startLevel(i);
                 list.appendChild(p);
             }
-            // Add THE GRAND RANDOMIZER
             let r = document.createElement('div');
             r.className = 'planet random';
             r.innerHTML = "GRAND<br>RANDOMIZER";
@@ -128,16 +149,12 @@
             isRandomMode = true;
             solvedCount = 0;
             missionQueue = [];
-            
-            // Build every single combination from 2x1 up to 12x12
             for(let t=2; t<=12; t++) {
                 for(let m=1; m<=12; m++) {
                     missionQueue.push({t: t, m: m});
                 }
             }
-            // Shuffle them completely
             missionQueue.sort(() => Math.random() - 0.5);
-
             document.getElementById('map-screen').classList.remove('active');
             document.getElementById('game-screen').classList.add('active');
             nextQuestion();
@@ -146,18 +163,29 @@
         function nextQuestion() {
             inputField.value = "";
             const total = isRandomMode ? 132 : 12;
-            
+            let displayQ = "";
+
             if(isRandomMode) {
                 let q = missionQueue[solvedCount];
-                currentTable = q.t;
-                currentAnswer = q.t * q.m;
-                document.getElementById('question').innerText = `${q.t} × ${q.m}`;
+                if(gameMode === 'mult') {
+                    currentAnswer = q.t * q.m;
+                    displayQ = `${q.t} × ${q.m}`;
+                } else {
+                    currentAnswer = q.m;
+                    displayQ = `${q.t * q.m} ÷ ${q.t}`;
+                }
             } else {
                 let mult = missionQueue[solvedCount];
-                currentAnswer = currentTable * mult;
-                document.getElementById('question').innerText = `${currentTable} × ${mult}`;
+                if(gameMode === 'mult') {
+                    currentAnswer = currentTable * mult;
+                    displayQ = `${currentTable} × ${mult}`;
+                } else {
+                    currentAnswer = mult;
+                    displayQ = `${currentTable * mult} ÷ ${currentTable}`;
+                }
             }
             
+            document.getElementById('question').innerText = displayQ;
             document.getElementById('feedback').innerText = "";
             document.getElementById('counter').innerText = `Question ${solvedCount + 1} of ${total}`;
             document.getElementById('progress-bar').style.width = (solvedCount / total * 100) + "%";
@@ -165,19 +193,15 @@
         }
 
         inputField.addEventListener("input", function() {
-            const valStr = inputField.value;
-            const valNum = parseInt(valStr);
-
-            // Automatic check once correct number of digits are entered
-            if (valStr.length >= currentAnswer.toString().length) {
-                if (valNum === currentAnswer) {
+            if (inputField.value.length >= currentAnswer.toString().length) {
+                if (parseInt(inputField.value) === currentAnswer) {
                     playDing();
                     document.getElementById('feedback').innerText = "⭐ CORRECT!";
                     document.getElementById('feedback').style.color = "var(--neon-green)";
                     solvedCount++;
                     const total = isRandomMode ? 132 : 12;
                     if(solvedCount >= total) {
-                        setTimeout(() => { alert("MISSION MASTERED! You cleared the Galaxy!"); showMap(); }, 400);
+                        setTimeout(() => { alert("MISSION MASTERED!"); showMap(); }, 400);
                     } else {
                         setTimeout(nextQuestion, 400);
                     }
